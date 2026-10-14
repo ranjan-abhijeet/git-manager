@@ -101,10 +101,10 @@ Quick-switch directly in current repo:
 Update account profiles in `config.json` via CLI:
 ```powershell
 # Set work email and name:
-.\git-account.ps1 set-work -Email "your.name@company.com" -Name "Abhijeet Ranjan"
+.\git-account.ps1 set-work -Email "your.work@company.com" -Name "Your Name"
 
 # Set personal email and name:
-.\git-account.ps1 set-personal -Email "ranjan.viper@outlook.com" -Name "Abhijeet Ranjan"
+.\git-account.ps1 set-personal -Email "your.personal@email.com" -Name "Your Name"
 
 # View current configuration:
 .\git-account.ps1 show-config
@@ -112,6 +112,25 @@ Update account profiles in `config.json` via CLI:
 # Or open config.json directly in Notepad:
 .\git-account.ps1 config
 ```
+
+---
+
+## How Cloning vs Pushing Works
+
+### 1. Cloning Repositories (`git clone`)
+Cloning is **read-only** and handled directly at the network layer by **Git Credential Manager (GCM)**:
+- When cloning from **GitHub**, GCM authenticates your personal GitHub credentials.
+- When cloning from **Azure DevOps**, GCM authenticates your corporate Microsoft SSO account.
+- Because `credential.useHttpPath = true` is enabled by the installer, credentials for `dev.azure.com` and `github.com` remain isolated and never conflict or overwrite each other.
+- **You do not need to change how you clone.** Simply clone any repository as you normally do.
+
+### 2. Pushing Repositories (`git push`)
+Pushing is where author identity and repository policies matter:
+- Every Git commit permanently records an **Author Name** and **Author Email**.
+- If a personal email is committed to a corporate repository (or vice-versa), company push validation rules may reject the push, or personal projects may be tagged with corporate emails.
+- **The Safety Net**: Before any commit is pushed, the global `pre-push` hook verifies that the repository has an explicit identity matching the remote:
+  - If the repository has never been configured, or if there is a mismatch (e.g. attempting to push to Azure DevOps with personal identity), the GUI selector appears to prompt you.
+  - Once chosen and saved, future pushes in that repository proceed instantly without interruption.
 
 ---
 
