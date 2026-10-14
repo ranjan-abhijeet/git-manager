@@ -1,0 +1,81 @@
+#!/bin/sh
+# Global or local pre-push hook for Git Account Management
+# Validates repository account configuration and triggers interactive GUI popup if unconfigured or mismatched.
+
+REMOTE_NAME="$1"
+REMOTE_URL="$2"
+
+# If REMOTE_URL is empty, try to resolve it from git remote
+if [ -z "$REMOTE_URL" ]; then
+    REMOTE_URL=$(git remote get-url "$REMOTE_NAME" 2>/dev/null || echo "")
+fi
+
+# Get configured local account and email
+LOCAL_ACCOUNT=$(git config --local user.account 2>/dev/null || echo "")
+LOCAL_EMAIL=$(git config --local user.email 2>/dev/null || echo "")
+
+# Resolve script directory for git-account-picker.ps1
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd -W 2>/dev/null || pwd)"
+PICKER_SCRIPT="$HOOK_DIR/../git-account-picker.ps1"
+
+# Check if remote is Azure DevOps
+IS_AZURE_REMOTE=0
+case "$REMOTE_URL" in
+    *dev.azure.com*|*visualstudio.com*)
+        IS_AZURE_REMOTE=1
+        ;;
+esac
+
+# Check if remote is GitHub
+IS_GITHUB_REMOTE=0
+case "$REMOTE_URL" in
+    *github.com*)
+        IS_GITHUB_REMOTE=1
+        ;;
+esac
+
+PROMPT_NEEDED=0
+
+# Prompt if no account tag or local email is set
+if [ -z "$LOCAL_ACCOUNT" ] || [ -z "$LOCAL_EMAIL" ]; then
+    PROMPT_NEEDED=1
+fi
+
+# Prompt if mismatch detected (e.g. pushing to Azure DevOps with personal account tag)
+if [ "$IS_AZURE_REMOTE" -eq 1 ] && [ "$LOCAL_ACCOUNT" = "personal" ]; then
+    echo "⚠️ Warning: Target remote is Azure DevOps, but current repository is tagged as 'personal'!"
+    PROMPT_NEEDED=1
+fi
+
+if [ "$IS_GITHUB_REMOTE" -eq 1 ] && [ "$LOCAL_ACCOUNT" = "work" ]; then
+    echo "⚠️ Warning: Target remote is GitHub, but current repository is tagged as 'work'!"
+    PROMPT_NEEDED=1
+fi
+
+if [ "$PROMPT_NEEDED" -eq 1 ]; then
+    echo "=========================================================="
+    echo "🔍 Git Account Check: Verifying account profile..."
+    echo "Target Remote: $REMOTE_URL"
+    echo "Opening account selector popup..."
+    echo "=========================================================="
+
+    REPO_PATH="$(pwd -W 2>/dev/null || pwd)"
+    SAFE_REMOTE="${REMOTE_URL:-(No Remote)}"
+    
+    # Run PowerShell GUI picker
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PICKER_SCRIPT" -RepoPath "$REPO_PATH" -RemoteUrl "$SAFE_REMOTE"
+    EXIT_CODE=$?
+
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo ""
+        echo "❌ Push aborted: Account selection was cancelled or failed."
+        exit 1
+    fi
+fi
+
+# Refresh local email & account after potential GUI selection
+LOCAL_ACCOUNT=$(git config --local user.account 2>/dev/null || echo "")
+LOCAL_EMAIL=$(git config --local user.email 2>/dev/null || echo "")
+
+echo "✅ Git Push using account: $LOCAL_ACCOUNT ($LOCAL_EMAIL)"
+exit 0

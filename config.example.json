@@ -1,0 +1,17 @@
+{
+  "personal": {
+    "name": "Your Name",
+    "email": "your.personal@email.com",
+    "domains": [
+      "github.com"
+    ]
+  },
+  "work": {
+    "name": "Your Name",
+    "email": "your.work@company.com",
+    "domains": [
+      "dev.azure.com",
+      "visualstudio.com"
+    ]
+  }
+}
